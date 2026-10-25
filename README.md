@@ -18,7 +18,7 @@ Revenue is computed per product as daily units x that week's shelf price, then s
 
 - [x] Step 1: load M5 into SQLite (store x department daily units and revenue, calendar)
 - [x] Step 2: model features with SQL window functions
-- [ ] Step 3: seasonal-naive baseline, Prophet and XGBoost with a rolling-origin backtest
+- [x] Step 3: seasonal-naive baseline, Prophet and XGBoost with a rolling-origin backtest
 - [ ] Step 4: 28-day forecasts with prediction intervals
 - [ ] Step 5: LLM executive summaries with a number check
 - [ ] Step 6: Streamlit dashboard
@@ -75,3 +75,25 @@ so they exist when forecasting 28 days ahead:
 The features were verified on synthetic data where each day's sales equal its day number,
 so every lag and window average can be checked exactly, including that no feature crosses
 from one series into another.
+
+## Step 3: models and backtest
+
+```bash
+python forecast/backtest.py      # about 2-3 minutes; results in results/
+```
+
+| Model | How it forecasts |
+|---|---|
+| Seasonal naive | repeats the last observed week; the baseline any real model must beat |
+| Prophet | one model per series: trend, weekly and yearly seasonality (multiplicative), calendar events as holidays (with the day before and after), SNAP days and the price index as regressors |
+| XGBoost | one global model for all 28 series on the SQL features plus series identity; it predicts each day's sales relative to the series' recent 28-day level, so large and small departments are learned together; 10% and 90% quantile models give the interval |
+| Ensemble | the mean of Prophet and XGBoost |
+
+**Rolling-origin backtest.** Three 28-day periods are forecast as if each were the future:
+the origin is the last known day minus 28, 56 and 84 days, and each model trains only on
+data up to its origin. Scored with WAPE (total absolute error / total sales, the standard
+retail measure), bias (over- or under-forecasting, which drives stock-outs or excess
+stock), RMSE, and the coverage of the 80% prediction interval (ideal: about 0.80).
+
+Results: `results/backtest_summary.md` (overall, by department, by fold),
+`results/backtest_metrics.csv`, and every forecast in `results/backtest_predictions.parquet`.
