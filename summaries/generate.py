@@ -147,6 +147,13 @@ def unsupported(summary: str, facts: dict) -> list[str]:
     return bad
 
 
+def tidy(text: str) -> str:
+    """Fix spacing slips such as '+4.4%change' or 'thousand.This' (decimals are untouched)."""
+    text = re.sub(r"(?<=[%,;:])(?=[A-Za-z])", " ", text)
+    text = re.sub(r"(?<=[a-z]\.)(?=[A-Z])", " ", text)
+    return re.sub(r"[ \t]{2,}", " ", text).strip()
+
+
 def complete(text: str) -> bool:
     """A finished summary ends with a full sentence and has a reasonable length."""
     return text.rstrip().endswith((".", "!", "?")) and len(text.split()) >= 70
@@ -162,14 +169,14 @@ def problems(text: str, facts: dict) -> list[str]:
 def write_summary(facts: dict) -> dict:
     fact_text = "\n".join(f"- {k}: {v}" for k, v in facts.items())
     user = f"Facts:\n{fact_text}\n\nWrite the summary."
-    text = chat(SYSTEM, user, max_tokens=4096)
+    text = tidy(chat(SYSTEM, user, max_tokens=4096))
     issues, retried = problems(text, facts), False
     if issues:
         retried = True
         retry = (f"{user}\n\nYour previous summary had problems: {'; '.join(issues)}. Write it again: "
                  "complete, 110 to 170 words, using only numbers exactly as written in the facts."
                  f"\n\nPrevious summary:\n{text}")
-        text = chat(SYSTEM, retry, max_tokens=4096)
+        text = tidy(chat(SYSTEM, retry, max_tokens=4096))
     bad = unsupported(text, facts)
     return {"text": text, "verified": int(not bad and complete(text)),
             "unsupported_numbers": json.dumps(bad + ([] if complete(text) else ["(incomplete)"])),
