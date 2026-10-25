@@ -8,8 +8,11 @@ from core.llm import chat, client  # noqa: E402
 
 print(f"Provider: {LLM_PROVIDER}   model: {LLM_MODEL}")
 try:
-    reply = chat("You are a concise assistant.", "Reply with exactly: connection works", max_tokens=20)
-    print(f"Reply: {reply!r}\nThe LLM connection works.")
+    reply = chat("You are a concise assistant.", "Reply with exactly: connection works", max_tokens=1024, attempts=3)
+    print(f"Reply: {reply!r}")
+    if "connection works" not in reply.lower():
+        raise RuntimeError("the reply did not contain the expected text")
+    print("The LLM connection works.")
 except Exception as e:
     print(f"Failed: {type(e).__name__}: {str(e)[:300]}")
     try:
