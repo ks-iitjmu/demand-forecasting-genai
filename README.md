@@ -17,7 +17,7 @@ Revenue is computed per product as daily units x that week's shelf price, then s
 ## Status
 
 - [x] Step 1: load M5 into SQLite (store x department daily units and revenue, calendar)
-- [ ] Step 2: model features with SQL window functions
+- [x] Step 2: model features with SQL window functions
 - [ ] Step 3: seasonal-naive baseline, Prophet and XGBoost with a rolling-origin backtest
 - [ ] Step 4: 28-day forecasts with prediction intervals
 - [ ] Step 5: LLM executive summaries with a number check
@@ -51,3 +51,27 @@ python scripts/check_llm.py     # checks the summary LLM (Gemini by default)
 The summary LLM is reached through the OpenAI-compatible API, so the provider is a
 setting: Gemini through Google AI Studio's free tier by default, or a local model through
 Ollama (`LLM_PROVIDER=ollama`).
+
+## Step 2: features in SQL
+
+```bash
+python ingest/build_features.py   # tables features and dept_prices
+```
+
+One row per store, department and date, including the 28 calendar days after the last
+day with sales, which are the days to forecast. Built with SQL window functions over a grid
+of every series and date. Sales-based features use only information at least 28 days old,
+so they exist when forecasting 28 days ahead:
+
+| Feature | Meaning |
+|---|---|
+| `lag_28`, `lag_35` | units on the same weekday 4 and 5 weeks earlier |
+| `mean_7_lag28`, `mean_28_lag28` | mean units over the 7 and 28 days ending 28 days earlier |
+| `lag_364` | units on the same weekday one year (52 weeks) earlier |
+| `wday`, `month`, `year`, `day_of_month`, `is_weekend` | calendar |
+| `is_event`, `event_type`, `event_name`, `snap` | holidays, sporting and cultural events, food-stamp days |
+| `price_index` | mean of each product's shelf price relative to its own average price (below 1.0 = discounts); prices are set in advance, so this is known for future days |
+
+The features were verified on synthetic data where each day's sales equal its day number,
+so every lag and window average can be checked exactly, including that no feature crosses
+from one series into another.
