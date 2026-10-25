@@ -1,0 +1,4 @@
+# Step 1: data and LLM connection
+pandas>=2.0
+numpy>=1.26
+openai>=1.40          # OpenAI-compatible client, used for Gemini and Ollama
