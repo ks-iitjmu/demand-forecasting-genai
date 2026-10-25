@@ -13,8 +13,14 @@ Every model sees only rows dated before the origin.
 import logging
 import warnings
 
+import sys
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
+
+sys.path.append(str(Path(__file__).resolve().parents[1]))
+from config import XGB_DEVICE  # noqa: E402
 
 KEYS = ["store_id", "dept_id"]
 XGB_FEATURES = ["store_code", "dept_code", "wday", "month", "day_of_month", "is_weekend", "snap",
@@ -101,7 +107,8 @@ def xgboost_model(df: pd.DataFrame, origin: pd.Timestamp, horizon: int, seed: in
     target = hist["units"] / hist["level"]                            # relative to the recent level
     valid = hist["date"] > origin - pd.Timedelta(days=horizon)        # last 28 days: early stopping
     params = dict(n_estimators=2000, learning_rate=0.03, max_depth=6, min_child_weight=5, subsample=0.8,
-                  colsample_bytree=0.8, random_state=seed, early_stopping_rounds=100, tree_method="hist")
+                  colsample_bytree=0.8, random_state=seed, early_stopping_rounds=100, tree_method="hist",
+                  device=XGB_DEVICE)
     X, Xv = hist.loc[~valid, XGB_FEATURES], hist.loc[valid, XGB_FEATURES]
     y, yv = target[~valid], target[valid]
 

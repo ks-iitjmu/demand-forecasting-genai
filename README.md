@@ -19,7 +19,7 @@ Revenue is computed per product as daily units x that week's shelf price, then s
 - [x] Step 1: load M5 into SQLite (store x department daily units and revenue, calendar)
 - [x] Step 2: model features with SQL window functions
 - [x] Step 3: seasonal-naive baseline, Prophet and XGBoost with a rolling-origin backtest
-- [ ] Step 4: 28-day forecasts with prediction intervals
+- [x] Step 4: 28-day forecasts with prediction intervals
 - [ ] Step 5: LLM executive summaries with a number check
 - [ ] Step 6: Streamlit dashboard
 - [ ] Step 7: run guide
@@ -97,3 +97,26 @@ stock), RMSE, and the coverage of the 80% prediction interval (ideal: about 0.80
 
 Results: `results/backtest_summary.md` (overall, by department, by fold),
 `results/backtest_metrics.csv`, and every forecast in `results/backtest_predictions.parquet`.
+
+## Step 4: the 28-day forecast
+
+```bash
+python forecast/predict.py      # needs results/ from forecast/backtest.py
+```
+
+Prophet and XGBoost are trained on all known days and averaged (the ensemble, the best model
+in the backtest) to forecast the 28 days after the last day with sales, for all 28 series.
+
+**Calibrated intervals.** The ensemble's raw 80% intervals cover less than 80% in the backtest,
+so each side is widened by the smallest factor that reaches 80% on the backtest forecasts.
+Fitting and checking that factor on the same data would flatter it, so the reported coverage
+comes from leave-one-fold-out: the factor is fitted on two backtest periods and checked on the
+third, for each period in turn (`results/interval_calibration.json`).
+
+**Revenue** = forecast units x each series' price per unit over its last 28 days, adjusted by the
+planned price change, since Walmart's prices (and so the price index) are known in advance.
+
+Output: SQLite tables `forecasts` (units and revenue with intervals, the two model forecasts,
+events and SNAP days) and `forecast_calibration`, plus `results/forecast.csv`.
+
+XGBoost can train on an NVIDIA GPU with `XGB_DEVICE=cuda` in `.env`.

@@ -11,6 +11,8 @@ RESULTS = ROOT / "results"
 STATE = "CA"                          # stores in California: CA_1 .. CA_4
 HORIZON = 28                          # days ahead, as in the M5 competition
 BACKTEST_FOLDS = 3                    # rolling-origin backtest: three 28-day periods
+INTERVAL_TARGET = 0.80                # prediction intervals are calibrated to this coverage
+XGB_DEVICE = os.environ.get("XGB_DEVICE", "cpu")   # "cuda" trains XGBoost on an NVIDIA GPU
 
 # LLM for executive summaries. Any OpenAI-compatible endpoint works:
 #   gemini (default): Google AI Studio's OpenAI-compatible endpoint, free tier

@@ -1,0 +1,11 @@
+{
+  "target": 0.8,
+  "scale": 1.08,
+  "raw_coverage": 0.769,
+  "held_out_coverage": 0.804,
+  "held_out_by_fold": {
+    "1": 0.778,
+    "2": 0.865,
+    "3": 0.77
+  }
+}
