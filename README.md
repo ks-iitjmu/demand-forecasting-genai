@@ -21,7 +21,7 @@ Revenue is computed per product as daily units x that week's shelf price, then s
 - [x] Step 3: seasonal-naive baseline, Prophet and XGBoost with a rolling-origin backtest
 - [x] Step 4: 28-day forecasts with prediction intervals
 - [x] Step 5: LLM executive summaries with a number check
-- [ ] Step 6: Streamlit dashboard
+- [x] Step 6: Streamlit dashboard
 - [ ] Step 7: run guide
 
 ## Setup
@@ -134,6 +134,10 @@ same weeks a year earlier, the departments growing and declining most, events an
 the period, and the model's backtest accuracy. The LLM (Gemini by default, or a local model
 through Ollama) only turns these facts into a three-paragraph summary for store managers.
 
+Each store's summary uses that store's own backtest accuracy, and the forecast range is
+described as conservative: it is the sum of the daily 80% ranges, while daily errors partly
+cancel over 28 days, so the true range of the 28-day total is narrower.
+
 **Checks.** Every number in a summary must match one of its facts (dates, years and small
 counts excepted), and the summary must be complete: it must end with a full sentence and have a
 reasonable length. If either check fails, the LLM gets one retry that names the problem; a
@@ -146,3 +150,20 @@ limit with a larger budget.
 Output: SQLite table `summaries`, with each summary's text, the facts it was written from,
 the verification result, the provider and model, and a hash of the facts, so summaries are
 only regenerated when the forecast changes.
+
+## Step 6: dashboard (Streamlit)
+
+```bash
+streamlit run app/dashboard.py      # http://localhost:8501
+```
+
+| Part | Shows |
+|---|---|
+| Filters | store (all or one), departments, units or revenue, history length |
+| KPIs | expected units or revenue for the next 28 days with the change vs the previous 28 days, change vs the same weeks last year, the conservative range, and backtest error vs the naive baseline |
+| Forecast | recent actual sales, the forecast with its calibrated 80% daily range, events in the period; a department table sorted by change |
+| Executive summary | the LLM summary for the selected store, its verification status, and the exact facts it was written from |
+| Model accuracy | every model's WAPE, spread across periods, bias and interval coverage for the current selection, and backtest forecasts against actual sales |
+| Data and method | forecast download (CSV) and a short description of the method |
+
+The dashboard reads the database in read-only mode and caches queries.

@@ -35,7 +35,8 @@ Write natural, fluent English for a busy manager: do not repeat the wording of t
 Write 110 to 170 words of plain prose in three short paragraphs:
 1. the headline: expected units and revenue for the period, with the likely range, and the change;
 2. what drives it: the departments that change most, and events or SNAP days in the period;
-3. how far to trust it: the forecast accuracy and the range, and what to watch.
+3. how far to trust it: the forecast accuracy compared with the naive forecast, and the range,
+   which is conservative (the sum of daily ranges), so describe it as a cautious outer bound.
 No headings, no bullet points, no recommendations that the facts do not support."""
 
 
@@ -51,6 +52,17 @@ def day(iso: str) -> str:
 def event_label(name: str) -> str:
     """M5 names events like 'MemorialDay' or 'NBAFinalsStart'; make them readable."""
     return re.sub(r"(?<=[a-z])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])", " ", name).replace("  ", " ")
+
+
+def backtest_wape(store: str | None, model: str) -> float:
+    """Mean WAPE over the backtest periods, for one store or all stores together."""
+    bt = pd.read_parquet(RESULTS / "backtest_predictions.parquet")
+    bt = bt[bt["model"] == model]
+    if store is not None:
+        bt = bt[bt["store_id"] == store]
+    per_fold = bt.groupby("fold").apply(lambda g: (g["yhat"] - g["y"]).abs().sum() / g["y"].sum(),
+                                        include_groups=False)
+    return float(per_fold.mean())
 
 
 def money(v: float) -> str:
@@ -78,9 +90,7 @@ def facts_for(con, store: str | None) -> dict:
     change = (dept_now / dept_before - 1).sort_values()
     events = f.loc[f["event_name"] != "", ["date", "event_name"]].drop_duplicates()
     snap_days = int(f.drop_duplicates("date")["snap"].sum())
-    bt = pd.read_csv(RESULTS / "backtest_metrics.csv")
-    wape = bt[bt["model"] == "ensemble"]["wape"].mean()
-    base = bt[bt["model"] == "seasonal_naive"]["wape"].mean()
+    wape, base = backtest_wape(store, "ensemble"), backtest_wape(store, "seasonal_naive")
     cal = pd.read_sql("SELECT held_out_coverage FROM forecast_calibration", con).iloc[0, 0]
 
     units, lo, hi = f["units"].sum(), f["units_lo"].sum(), f["units_hi"].sum()
@@ -88,9 +98,9 @@ def facts_for(con, store: str | None) -> dict:
         "scope": label,
         "period": f"{day(start)} to {day(end)}, {end[:4]} (28 days)",
         "expected units": f"{units:,.0f}",
-        "likely range of units": f"{lo:,.0f} to {hi:,.0f}",
+        "conservative range of units (sum of the daily 80% ranges; the true range of the total is narrower)": f"{lo:,.0f} to {hi:,.0f}",
         "expected revenue": money(f["revenue"].sum()),
-        "likely range of revenue": f"{money(f['revenue_lo'].sum())} to {money(f['revenue_hi'].sum())}",
+        "conservative range of revenue (same basis)": f"{money(f['revenue_lo'].sum())} to {money(f['revenue_hi'].sum())}",
         "change in units vs the previous 28 days": pct(units / last28["units"] - 1),
         "change in units vs the same weeks last year": pct(units / last_year["units"] - 1),
         "fastest-growing departments": ", ".join(
@@ -99,8 +109,8 @@ def facts_for(con, store: str | None) -> dict:
             f"{DEPT_NAMES.get(d, d)} ({pct(v)})" for d, v in change.head(2).items() if v < 0) or "none",
         "events": "; ".join(f"{event_label(r.event_name)} ({day(r.date)})" for r in events.itertuples()) or "none",
         "SNAP (food-stamp) days": str(snap_days),
-        "forecast error in backtests (WAPE)": f"{wape * 100:.1f}%",
-        "error of a naive repeat-last-week forecast": f"{base * 100:.1f}%",
+        f"forecast error in backtests for {label} (WAPE)": f"{wape * 100:.1f}%",
+        f"error of a naive repeat-last-week forecast for {label}": f"{base * 100:.1f}%",
         "actual days inside the forecast range in held-out backtests": f"{cal * 100:.0f}%",
     }
 
