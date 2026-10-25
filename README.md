@@ -20,7 +20,7 @@ Revenue is computed per product as daily units x that week's shelf price, then s
 - [x] Step 2: model features with SQL window functions
 - [x] Step 3: seasonal-naive baseline, Prophet and XGBoost with a rolling-origin backtest
 - [x] Step 4: 28-day forecasts with prediction intervals
-- [ ] Step 5: LLM executive summaries with a number check
+- [x] Step 5: LLM executive summaries with a number check
 - [ ] Step 6: Streamlit dashboard
 - [ ] Step 7: run guide
 
@@ -120,3 +120,29 @@ Output: SQLite tables `forecasts` (units and revenue with intervals, the two mod
 events and SNAP days) and `forecast_calibration`, plus `results/forecast.csv`.
 
 XGBoost can train on an NVIDIA GPU with `XGB_DEVICE=cuda` in `.env`.
+
+## Step 5: executive summaries (LLM)
+
+```bash
+python summaries/generate.py          # 5 summaries: all stores, then each store
+python summaries/generate.py --force  # rewrite even if the facts have not changed
+```
+
+**The LLM never calculates.** Python computes every fact from SQL and formats each number:
+forecast units and revenue with their range, the change against the previous 28 days and the
+same weeks a year earlier, the departments growing and declining most, events and SNAP days in
+the period, and the model's backtest accuracy. The LLM (Gemini by default, or a local model
+through Ollama) only turns these facts into a three-paragraph summary for store managers.
+
+**Checks.** Every number in a summary must match one of its facts (dates, years and small
+counts excepted), and the summary must be complete: it must end with a full sentence and have a
+reasonable length. If either check fails, the LLM gets one retry that names the problem; a
+summary that still fails is stored with a visible warning rather than presented as reliable.
+In testing, the checks caught invented figures, rounded figures, a store summary reusing the
+all-store totals, and summaries cut off mid-sentence. The cut-offs came from the model's hidden
+reasoning using up the output budget; the client now retries any reply that hits the output
+limit with a larger budget.
+
+Output: SQLite table `summaries`, with each summary's text, the facts it was written from,
+the verification result, the provider and model, and a hash of the facts, so summaries are
+only regenerated when the forecast changes.

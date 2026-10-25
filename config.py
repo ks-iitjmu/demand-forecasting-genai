@@ -18,6 +18,6 @@ XGB_DEVICE = os.environ.get("XGB_DEVICE", "cpu")   # "cuda" trains XGBoost on an
 #   gemini (default): Google AI Studio's OpenAI-compatible endpoint, free tier
 #   ollama:           a local model, e.g. qwen3:14b, no key needed
 LLM_PROVIDER = os.environ.get("LLM_PROVIDER", "gemini")
-LLM_MODEL = os.environ.get("LLM_MODEL", "gemini-3.8-flash" if LLM_PROVIDER == "gemini" else "qwen3:14b")
+LLM_MODEL = os.environ.get("LLM_MODEL", "gemini-3.5-flash" if LLM_PROVIDER == "gemini" else "qwen3:14b")
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://localhost:11434")

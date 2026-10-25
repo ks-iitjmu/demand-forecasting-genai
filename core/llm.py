@@ -46,15 +46,15 @@ def chat(system: str, user: str, max_tokens: int = 2048, temperature: float = 0.
                 messages=[{"role": "system", "content": system}, {"role": "user", "content": user}])
             choice = r.choices[0]
             text = re.sub(r"<think>.*?</think>", "", choice.message.content or "", flags=re.S).strip()
-            if text:
-                return text
-            # Thinking models spend hidden reasoning tokens from the same output budget; if the
-            # budget ran out before any visible text, retry with a larger one.
+            # Thinking models spend hidden reasoning tokens from the same output budget. If the
+            # budget ran out, the visible text is missing or cut off mid-sentence: retry larger.
             if choice.finish_reason == "length" and max_tokens < 16000:
                 max_tokens *= 4
-                last = "the output limit was used up by hidden reasoning"
+                last = "the reply was cut off at the output limit (hidden reasoning uses the same budget)"
                 print(f"  attempt {attempt}/{attempts}: {last}; retrying with max_tokens={max_tokens}", flush=True)
                 continue
+            if text:
+                return text
             last = f"empty reply (finish_reason={choice.finish_reason})"
         except RateLimitError:
             last = "rate limited (429): the free tier allows only a few requests per minute"
